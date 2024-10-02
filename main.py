@@ -1,4 +1,4 @@
-from gradiogui import GradioGui
+from gradio_gui import GradioGui
 from segmentation_processor import WatershedProcessor
 
 STANDARD_WIDTH = 512

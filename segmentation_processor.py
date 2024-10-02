@@ -131,14 +131,14 @@ class WatershedProcessor:
 
             df = pd.DataFrame(data)
 
-            excel_path = "/content/output.xlsx"
+            excel_path = "output.xlsx"
             with pd.ExcelWriter(excel_path, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=False, sheet_name='Сегментированные объекты')
 
             if not Path(excel_path).is_file():
                 return "Ошибка при сохранении Excel файла.", None, None, None, None
 
-            excel_path_overall = "/content/overall.xlsx"
+            excel_path_overall = "overall.xlsx"
             total_particles = len(data)
             avg_area = df['Площадь'].mean()
             avg_perimeter = df['Периметр'].mean()
