@@ -116,21 +116,21 @@ class GradioGui:
             run_btn.click(
                 fn=self.__handle_watershed_algorithm,
                 inputs=[output_image, mask_input_f, mask_input_b],
-                outputs=[result_image_contours, result_image_normal, result_image_percentile, data_table,
+                outputs=[result_image_contours, result_image_percentile, result_image_normal, data_table,
                          download_excel, data_table_overall, download_excel_overall]
             )
 
             mask_input_f.change(
                 fn=self.__auto_run_processing,
                 inputs=[auto_update, output_image, mask_input_f, mask_input_b],
-                outputs=[result_image_contours, result_image_normal, result_image_percentile, data_table,
+                outputs=[result_image_contours, result_image_percentile, result_image_normal, data_table,
                          download_excel, data_table_overall, download_excel_overall]
             )
 
             mask_input_b.change(
                 fn=self.__auto_run_processing,
                 inputs=[auto_update, output_image, mask_input_f, mask_input_b],
-                outputs=[result_image_contours, result_image_normal, result_image_percentile, data_table,
+                outputs=[result_image_contours, result_image_percentile, result_image_normal, data_table,
                          download_excel, data_table_overall, download_excel_overall]
             )
 
