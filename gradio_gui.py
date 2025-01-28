@@ -1,6 +1,9 @@
 import gradio as gr
-
 from segmentation_processor import WatershedProcessor
+import tempfile
+import zipfile
+from PIL import Image
+import os
 
 
 class GradioGui:
@@ -20,8 +23,6 @@ class GradioGui:
                 flex-wrap: wrap;
             }
             .gradio-column {
-                # display: flex;
-                # flex-direction: column;
                 align-items: center;
             }
             """) as demo:
@@ -69,8 +70,22 @@ class GradioGui:
                             label="Автоматически обновлять",
                             value=True,
                             elem_id="auto_update")
-                        run_btn = gr.Button("Рассчитать", elem_id="run_btn")
 
+                        run_btn = gr.Button("Рассчитать", elem_id="run_btn")
+                        pixel_to_nm = gr.Number(
+                            label="pixel_to_nm",
+                            value=1.0,
+                            precision=4,
+                            elem_id="pixel_to_nm"
+                        )
+                        contour_thickness = gr.Number(
+                            label="contour_thickness",
+                            value=1.0,
+                            step=1,
+                            minimum=1,
+                            maximum=100,
+                            elem_id="contour_thickness"
+                        )
                     with gr.Tabs():
                         with gr.TabItem("Контуры"):
                             result_image_contours = gr.Image(
@@ -106,6 +121,8 @@ class GradioGui:
                     with gr.Row():
                         download_excel = gr.File(label="Скачать Excel Файл")
                         download_excel_overall = gr.File(label="Скачать Excel Файл")
+                        download_contours_btn = gr.Button("Скачать контуры по слоям")
+                        download_contours_file = gr.File(label="Скачать ZIP архив контуров")
 
             prepare_btn.click(
                 fn=self.__handle_prepare_image,
@@ -115,23 +132,29 @@ class GradioGui:
 
             run_btn.click(
                 fn=self.__handle_watershed_algorithm,
-                inputs=[output_image, mask_input_f, mask_input_b],
+                inputs=[output_image, mask_input_f, mask_input_b, pixel_to_nm],
                 outputs=[result_image_contours, result_image_percentile, result_image_normal, data_table,
                          download_excel, data_table_overall, download_excel_overall]
             )
 
             mask_input_f.change(
                 fn=self.__auto_run_processing,
-                inputs=[auto_update, output_image, mask_input_f, mask_input_b],
+                inputs=[auto_update, output_image, mask_input_f, mask_input_b, pixel_to_nm],
                 outputs=[result_image_contours, result_image_percentile, result_image_normal, data_table,
                          download_excel, data_table_overall, download_excel_overall]
             )
 
             mask_input_b.change(
                 fn=self.__auto_run_processing,
-                inputs=[auto_update, output_image, mask_input_f, mask_input_b],
+                inputs=[auto_update, output_image, mask_input_f, mask_input_b, pixel_to_nm],
                 outputs=[result_image_contours, result_image_percentile, result_image_normal, data_table,
                          download_excel, data_table_overall, download_excel_overall]
+            )
+
+            download_contours_btn.click(
+                fn=self.__handle_download_contours,
+                inputs=contour_thickness,
+                outputs=download_contours_file
             )
 
             demo.launch(share=share, debug=True)
@@ -140,9 +163,27 @@ class GradioGui:
         output_image = self.processor.prepare_image(input_image)
         return output_image, output_image, output_image
 
-    def __handle_watershed_algorithm(self, output_image, mask_input_f, mask_input_b):
-        return self.processor.watershed_algorithm(output_image, mask_input_f, mask_input_b)
+    def __handle_watershed_algorithm(self, output_image, mask_input_f, mask_input_b, pixel_to_nm):
+        return self.processor.watershed_algorithm(output_image, mask_input_f, mask_input_b, pixel_to_nm)
 
-    def __auto_run_processing(self, auto_update_flag, output_img, mask_f, mask_b):
+    def __auto_run_processing(self, auto_update_flag, output_img, mask_f, mask_b, pixel_to_nm):
         if auto_update_flag:
-            return self.__handle_watershed_algorithm(output_img, mask_f, mask_b)
+            return self.__handle_watershed_algorithm(output_img, mask_f, mask_b, pixel_to_nm)
+
+    def __handle_download_contours(self, contour_thickness):
+        if not hasattr(self.processor, 'contours_original') or len(self.processor.contours_original) == 0:
+            raise gr.Error("Нет данных контуров для скачивания. Сначала запустите обработку.")
+
+        temp_dir = tempfile.mkdtemp()
+        zip_path = os.path.join(temp_dir, "contours.zip")
+
+        contour_images = self.processor.generate_contour_images(int(contour_thickness))
+
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for filename, img_array in contour_images:
+                pil_img = Image.fromarray(img_array, 'RGBA')
+                temp_img_path = os.path.join(temp_dir, filename)
+                pil_img.save(temp_img_path)
+                zipf.write(temp_img_path, arcname=filename)
+
+        return zip_path
