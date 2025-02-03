@@ -40,7 +40,7 @@ class GradioGui:
 
     # ========================== Сегментация ==================================
     def build_segmentation_tab(self):
-        with gr.Row(elem_id="images_row", visible=True):
+        with gr.Row(visible=True):
             input_column = self.build_input_column()
             output_column = self.build_output_column()
             controls_column, extra_components = self.build_controls_column()
@@ -51,7 +51,6 @@ class GradioGui:
             input_image = gr.Image(
                 type="numpy",
                 label="Входное изображение",
-                elem_id="input_image",
                 height=self.height,
                 width=self.width
             )
@@ -62,7 +61,6 @@ class GradioGui:
                 height=self.height,
                 width=self.width,
                 interactive=True,
-                elem_id="mask_inputF"
             )
         input_column.input_image = input_image
         input_column.mask_input_f = mask_input_f
@@ -73,7 +71,6 @@ class GradioGui:
             output_image = gr.Image(
                 type="numpy",
                 label="Серое изображение",
-                elem_id="output_image",
                 height=self.height,
                 width=self.width
             )
@@ -84,7 +81,6 @@ class GradioGui:
                 height=self.height,
                 width=self.width,
                 interactive=True,
-                elem_id="mask_inputB"
             )
         output_column.output_image = output_image
         output_column.mask_input_b = mask_input_b
@@ -93,18 +89,16 @@ class GradioGui:
     def build_controls_column(self):
         with gr.Column(scale=1, min_width=200, elem_classes="gradio-column") as controls_column:
             with gr.Row():
-                prepare_btn = gr.Button("Подготовить", elem_id="save_btn")
+                prepare_btn = gr.Button("Подготовить")
                 auto_update = gr.Checkbox(
                     label="Автоматически обновлять",
                     value=True,
-                    elem_id="auto_update"
                 )
-                run_btn = gr.Button("Рассчитать", elem_id="run_btn")
+                run_btn = gr.Button("Рассчитать")
                 pixel_to_nm = gr.Number(
                     label="pixel_to_nm",
                     value=1.0,
                     precision=4,
-                    elem_id="pixel_to_nm"
                 )
                 contour_thickness = gr.Number(
                     label="contour_thickness",
@@ -112,14 +106,12 @@ class GradioGui:
                     step=1,
                     minimum=1,
                     maximum=100,
-                    elem_id="contour_thickness"
                 )
             with gr.Tabs():
                 with gr.TabItem("Контуры"):
                     result_image_contours = gr.Image(
                         type="numpy",
                         label="Результат (Контуры)",
-                        elem_id="result_image_contours",
                         height=self.height,
                         width=self.width
                     )
@@ -127,7 +119,6 @@ class GradioGui:
                     result_image_normal = gr.Image(
                         type="numpy",
                         label="Результат (Покрас по нормали)",
-                        elem_id="result_image_normal",
                         height=self.height,
                         width=self.width
                     )
@@ -135,7 +126,6 @@ class GradioGui:
                     result_image_percentile = gr.Image(
                         type="numpy",
                         label="Результат (Покрас с персентилями)",
-                        elem_id="result_image_percentile",
                         height=self.height,
                         width=self.width
                     )
@@ -225,41 +215,54 @@ class GradioGui:
 
     # ========================== Функционал Линейки ===========================
     def build_ruler_tab(self):
-        with gr.Column(elem_id="ruler_column", scale=1) as ruler_column:
-            ruler_instructions = gr.Markdown("Нарисуйте горизонтальную линию на изображении для измерения расстояния.")
-            ruler_input_image = gr.ImageEditor(
-                label="Изображение для измерения",
-                height=self.height,
-                width=self.width,
-                brush=gr.Brush(colors=["#FF0000"]),
-                show_fullscreen_button=True,
-            )
-            ruler_measure_btn = gr.Button("Измерить")
-            ruler_distance_output = gr.Number(label="Расстояние (пиксели)")
-
-        # Привязка кнопки "Измерить"
+        with gr.Row():
+            with gr.Column() as ruler_column_input:
+                gr.Markdown("Нарисуйте горизонтальную линию на изображении для измерения расстояния")
+                ruler_input_image = gr.ImageEditor(
+                    label="Изображение для измерения",
+                    height=self.height,
+                    width=self.width,
+                    brush=gr.Brush(colors=["#FF0000"]),
+                    show_fullscreen_button=True,
+                )
+                ruler_size_nm = gr.Number(
+                    label="Размер линейки (нм)",
+                    value=0.0,
+                    precision=4,
+                    interactive=True
+                )
+                ruler_measure_btn = gr.Button("Измерить")
+            with gr.Column() as ruler_column_output:
+                ruler_distance_output = gr.Number(label="Расстояние (пиксели)")
+                ruler_px_to_nm_output = gr.Number(
+                    label="px_to_nm",
+                    value=0.0,
+                    precision=4,
+                    interactive=False
+                )
         ruler_measure_btn.click(
             fn=self.__handle_measure_distance,
-            inputs=ruler_input_image,
-            outputs=ruler_distance_output
+            inputs=[ruler_input_image, ruler_size_nm],
+            outputs=[ruler_distance_output, ruler_px_to_nm_output]
         )
+        return ruler_column_input, ruler_column_output
 
-    def __handle_measure_distance(self, image):
+    def __handle_measure_distance(self, image, ruler_size_nm):
         try:
             img_array = np.array(image['layers'][0])
-
             red_pixels = img_array[:, :, 0] > 100  # Маска для красных пикселей
-
             red_pixel_coords = np.where(red_pixels)
-
             min_x = np.min(red_pixel_coords[1])
             max_x = np.max(red_pixel_coords[1])
+            distance_px = max_x - min_x
 
-            distance = max_x - min_x
+            px_to_nm = 0.0
+            if ruler_size_nm > 0:
+                px_to_nm = ruler_size_nm / distance_px
 
-            return distance
+            return distance_px, px_to_nm
         except Exception as e:
-            return str(e)
+            return str(e), 0.0
 
     # ========================== Методы для сегментации =======================
     def __handle_prepare_image(self, input_image):
