@@ -128,6 +128,9 @@ def _calculate_object_properties(
     result_colored_percentile = result.copy()
     result_colored_normalized = result.copy()
 
+    # Калибровка задана для исходного изображения, измерения — после resize.
+    pixel_to_nm /= scale_factor
+
     for marker in unique_markers:
         obj_mask = np.uint8(markers == marker)
         num_labels, labels, _, _ = cv2.connectedComponentsWithStats(
